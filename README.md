@@ -1,22 +1,118 @@
-[![Open in Codespaces](https://classroom.github.com/assets/launch-codespace-2972f46106e565e64193e422d61a12cf1da4916b45550586e14ef0a7c637dd04.svg)](https://classroom.github.com/open-in-codespaces?assignment_repo_id=15291664)
-# UI Lab 1
-![](terminal-icon.png)
-![](gui-icon.png)
+## Робота 1: TUI з Jexer
+(робив на 5)
+>- інформація про клієнтів банку читаєтся з файлу test.dat
+>- Інформацію про клієнта (та про перший рахунок, що йому належить) ви маєте побачити, увівши номер клієнта <br>
 
-Це одна з робіт, які доповнюють основний цикл лабораторних робіт #1-8 (проект **Banking**, [Netbeans](https://netbeans.org/)) з ООП.  Основна мета цих додаткових вправ - познайомитись з різними видами інтерфейсів користувача та засобами їх створення. Згадувані 'базові' роботи розміщено в [окремому репозиторії](https://github.com/liketaurus/OOP-JAVA) (якщо будете робити завдання на "4" або "5" раджу переглянути [діаграму класів](https://github.com/liketaurus/OOP-JAVA/blob/master/MyBank.png), аби розуміти які методи є у класів).
+Код TUIdemo.java
+```java
+package com.mybank.tui;
 
-В ході першої роботи вам пропонується виконати **наступне завдання** - [Робота 1: TUI з Jexer](https://github.com/ppc-ntu-khpi/TUI-Lab1-Starter/blob/master/Lab%201%20-TUI/Lab%201.md)
-  
-**Додаткове завдання** (для тих хто зробив все і прагне більшого): [дивіться тут](https://github.com/ppc-ntu-khpi/TUI-Lab1-Starter/blob/master/Lab%201%20-TUI/Lab%201%20-%20add.md)
+import jexer.TAction;
+import jexer.TApplication;
+import jexer.TField;
+import jexer.TText;
+import jexer.TWindow;
+import jexer.event.TMenuEvent;
+import jexer.menu.TMenu;
+import com.mybank.data.*;
+import com.mybank.domain.*;
 
-Всі необхідні бібліотеки містяться у теці [jars](https://github.com/ppc-ntu-khpi/TUI-Lab1-Starter/tree/master/jars). В тому числі - всі необхідні відкомпільовані класи з робіт 1-8 - файл [MyBank.jar](https://github.com/ppc-ntu-khpi/TUI-Lab1-Starter/blob/master/jars/MyBank.jar). Файл даних лежить у теці [data](https://github.com/ppc-ntu-khpi/TUI-Lab1-Starter/tree/master/data).
+public class TUIdemo extends TApplication {
 
----
-**УВАГА! Не забуваємо здавати завдання через Google Classroom та вказувати посилання на створений для вас репозиторій!**
+    private static final int ABOUT_APP = 2000;
+    private static final int CUST_INFO = 2010;
+    private static String dataFilePath;
+    private static final String USAGE
+    = "USAGE: java com.mybank.tui.TUIdemo <dataFilePath>";
+    public static void main(String[] args) throws Exception {
+        if ( args.length != 1 ) {
+            System.out.println(USAGE);
+        } 
+        else {
+            dataFilePath = args[0];
+            TUIdemo tdemo = new TUIdemo();
+            (new Thread(tdemo)).start();
+        }
+        
+        
+    }
 
-Також пам'ятайте, що ніхто не заважає вам редагувати файл README у вашому репозиторії😉.
-А ще - дуже раджу спробувати нову фічу - інтеграцію з IDE REPL.it (хоч з таким завданням вона може й не впоратись, однак, цікаво ж!).
+    public TUIdemo() throws Exception {
+        super(BackendType.SWING);
 
-![](https://img.shields.io/badge/Made%20with-JAVA-red.svg)
-![](https://img.shields.io/badge/Made%20with-%20Netbeans-brightgreen.svg)
-![](https://img.shields.io/badge/Made%20at-PPC%20NTU%20%22KhPI%22-blue.svg) 
+        addToolMenu();
+        //custom 'File' menu
+        TMenu fileMenu = addMenu("&File");
+        fileMenu.addItem(CUST_INFO, "&Customer Info");
+        fileMenu.addDefaultItem(TMenu.MID_SHELL);
+        fileMenu.addSeparator();
+        fileMenu.addDefaultItem(TMenu.MID_EXIT);
+        //end of 'File' menu  
+
+        addWindowMenu();
+
+        //custom 'Help' menu
+        TMenu helpMenu = addMenu("&Help");
+        helpMenu.addItem(ABOUT_APP, "&About...");
+        //end of 'Help' menu 
+
+        setFocusFollowsMouse(true);
+        //Customer window
+        DataSource dataSource = new DataSource(dataFilePath);
+	dataSource.loadData();
+        ShowCustomerDetails();
+    }
+
+    @Override
+    protected boolean onMenu(TMenuEvent menu) {
+        if (menu.getId() == ABOUT_APP) {
+            messageBox("About", "\t\t\t\t\t   Just a simple Jexer demo.\n\nCopyright \u00A9 2019 Alexander \'Taurus\' Babich").show();
+            return true;
+        }
+        if (menu.getId() == CUST_INFO) {
+            ShowCustomerDetails();
+            return true;
+        }
+        return super.onMenu(menu);
+    }
+
+    private void ShowCustomerDetails() {
+        
+        
+        TWindow custWin = addWindow("Customer Window", 2, 1, 40, 10, TWindow.NOZOOMBOX);
+        custWin.newStatusBar("Enter valid customer number and press Show...");
+        
+        custWin.addLabel("Enter customer number: ", 2, 2);
+        TField custNo = custWin.addField(24, 2, 3, false);
+        TText details = custWin.addText("Owner Name: \nAccount Type: \nAccount Balance: ", 2, 4, 38, 8);
+        custWin.addButton("&Show", 28, 2, new TAction() {
+            @Override
+            public void DO() {
+                try {
+                    int custNum = Integer.parseInt(custNo.getText());
+                    Customer customer = Bank.getCustomer(custNum);
+                    String accountType;
+                    //details about customer with index==custNum
+                    if(customer.getAccount(0) instanceof SavingsAccount){
+                        accountType = "Saving";
+                    }
+                    else if(customer.getAccount(0) instanceof CheckingAccount) {
+                        accountType = "Checking";
+                    }
+                    else{
+                        accountType = "undefined";
+                    }
+                    details.setText("Owner Name: " + customer.getFirstName() + " " +
+                            customer.getLastName() + " (id="+custNum+")\nAccount Type: '"+ accountType
+                            + "'\nAccount Balance: " + customer.getAccount(0).getBalance() + "$");
+                } catch (Exception e) {
+                    messageBox("Error", "You must provide a valid customer number!").show();
+                }
+            }
+        });
+    }
+}
+```
+## Результат
+![image](https://github.com/ppc-ntu-khpi/tui-Roma-Cherny-15/assets/145929935/af4a81db-4897-4e14-b6fd-1c08c701d2d8)
+![image](https://github.com/ppc-ntu-khpi/tui-Roma-Cherny-15/assets/145929935/2511a069-aac0-4865-a698-b46f27080237)
